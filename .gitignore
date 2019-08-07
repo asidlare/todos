@@ -1,0 +1,6 @@
+.idea
+.python-version
+env/
+test-output/
+*.egg*
+__pycache__/
