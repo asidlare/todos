@@ -5,6 +5,7 @@ from apispec.ext.marshmallow import MarshmallowPlugin
 from .user import User
 from .login import Login
 from .logout import Logout
+from .todolists import TodoList
 
 api_spec = Blueprint('api_spec', __name__, url_prefix='/api/v1')
 
@@ -19,13 +20,14 @@ def get():
         plugins=[FlaskPlugin(), MarshmallowPlugin()]
     )
 
-    spec.components.schema("User")
     spec.path(view=User.collection_view)
 
-    spec.components.schema("Login")
     spec.path(view=Login.collection_view)
 
-    spec.components.schema("Logout")
     spec.path(view=Logout.collection_view)
+
+    spec.path(view=TodoList.collection_view)
+    spec.path(view=TodoList.view)
+    spec.path(view=TodoList.permission_view)
 
     return jsonify(spec.to_dict())

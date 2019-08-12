@@ -1,6 +1,10 @@
 from marshmallow import Schema, fields
 
 
+class UserEmail(Schema):
+    email = fields.Email(required=False)
+
+
 class UserGet(Schema):
     login = fields.Str(required=True)
     user_id = fields.UUID(required=True)

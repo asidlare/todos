@@ -18,6 +18,7 @@ class TestCaseWithDB(unittest.TestCase):
         del os.environ["FLASK_ENV"]  # Cleanup app environment
 
     def setUp(self):
+        self.maxDiff = None
         self.app_context = Todos().app.app_context()
         with self.app_context:
             @event.listens_for(Engine, "connect")
@@ -46,6 +47,7 @@ class IntegrationTestCase(unittest.TestCase):
         del os.environ["FLASK_ENV"]  # Cleanup app environment
 
     def setUp(self):
+        self.maxDiff = None
         self.app = Todos().app
         self.app.testing = True
         self.client = self.app.test_client()

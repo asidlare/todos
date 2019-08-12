@@ -1,4 +1,4 @@
-from sqlalchemy import MetaData, DateTime
+from sqlalchemy import MetaData, DateTime, Boolean, Integer
 from sqlalchemy.dialects import mysql
 from flask_sqlalchemy import SQLAlchemy as _BaseSQLAlchemy
 from flask_migrate import Migrate
@@ -16,6 +16,12 @@ NAMING_CONVENSION = {
 # Prevent constant migrations from sa.DateTime(timezone=True) to mysql.DATETIME().
 DATETIME_TYPE = DateTime(timezone=True)
 DATETIME_TYPE = DATETIME_TYPE.with_variant(mysql.DATETIME(), 'mysql')
+# mysql boolean
+BOOLEAN_TYPE = Boolean()
+BOOLEAN_TYPE = BOOLEAN_TYPE.with_variant(mysql.TINYINT(display_width=1), 'mysql')
+# Unsigned integer.
+UNSIGNEDINT_TYPE = Integer()
+UNSIGNEDINT_TYPE = UNSIGNEDINT_TYPE.with_variant(mysql.INTEGER(unsigned=True), 'mysql')
 
 
 # The “pre ping” feature will normally emit SQL equivalent to “SELECT 1” each time a connection is checked out
