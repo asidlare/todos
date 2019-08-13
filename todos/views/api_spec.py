@@ -6,6 +6,7 @@ from .user import User
 from .login import Login
 from .logout import Logout
 from .todolists import TodoList
+from .tasks import Task
 
 api_spec = Blueprint('api_spec', __name__, url_prefix='/api/v1')
 
@@ -29,5 +30,9 @@ def get():
     spec.path(view=TodoList.collection_view)
     spec.path(view=TodoList.view)
     spec.path(view=TodoList.permission_view)
+
+    spec.path(view=Task.collection_view)
+    spec.path(view=Task.view)
+    spec.path(view=Task.reparent_view)
 
     return jsonify(spec.to_dict())

@@ -5,7 +5,7 @@ from todos.config import setup_logging, get_config
 from todos.models.api.user_api import UserApi
 from todos.models import db, migrate
 from flask_login import LoginManager
-from todos.views import api_spec, user_bp, login_bp, logout_bp, todolist_bp
+from todos.views import api_spec, user_bp, login_bp, logout_bp, todolist_bp, task_bp
 
 setup_logging()
 login_manager = LoginManager()
@@ -26,6 +26,7 @@ class Todos:
         self.app.register_blueprint(logout_bp)
         self.app.register_blueprint(user_bp)
         self.app.register_blueprint(todolist_bp)
+        self.app.register_blueprint(task_bp)
         self.app.register_blueprint(get_swaggerui_blueprint('/api', '/api/v1/'), url_prefix='/api')
 
         # initialize database and migration tool

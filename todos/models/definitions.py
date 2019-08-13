@@ -255,7 +255,7 @@ class TaskTbl(db.Model, DictMixin):
     description = db.Column(db.Text(), nullable=True)
     todolist_id = db.Column(db.CHAR(36), db.ForeignKey('TodoList.todolist_id', ondelete="cascade"), nullable=False,
                             index=True)
-    status = db.Column(db.Enum(TaskStatus), nullable=False)
+    status = db.Column(db.Enum(TaskStatus), nullable=False, index=True)
     # inserting values into table to guarantee specific ordering by priority
     priority = db.Column(db.Enum(Priority, values_callable=lambda x: [e.value for e in x]), nullable=False)
     created_ts = db.Column(DATETIME_TYPE, nullable=False)
@@ -291,9 +291,8 @@ class TaskTbl(db.Model, DictMixin):
             yield task.task_id
 
     @property
-    def descentants(self):
-        visited = list()
-        return (row['task_id'] for row in self.dfs_tree_from_object(visited) if row != self.to_dict())
+    def descendants(self):
+        return (row for row in self.dfs_tree_from_object(visited=list()) if row != self.to_dict())
 
     @property
     def dfs_tree(self):
@@ -306,7 +305,7 @@ class TaskTbl(db.Model, DictMixin):
             visited = self.dfs_tree_from_object(visited)
         return iter(visited)
 
-    def dfs_tree_from_object(self, visited=None):
+    def dfs_tree_from_object(self, visited):
         current = self
         visited.append(current.to_dict())
 
@@ -333,7 +332,7 @@ class TaskTbl(db.Model, DictMixin):
         out['priority'] = self.priority.name
         out['depth'] = self.depth
         out['is_leaf'] = self.is_leaf
-        out['status_changes']: self.status_changes
+        out['status_changes'] = self.status_changes
         return out
 
 
@@ -359,5 +358,7 @@ class TaskStatusChangeLogTbl(db.Model, DictMixin):
 
     def to_dict(self):
         out = super().to_dict()
+        out.pop('task_id')
         out['status'] = self.status.name
+        out['changed_by'] = self.User.name
         return out

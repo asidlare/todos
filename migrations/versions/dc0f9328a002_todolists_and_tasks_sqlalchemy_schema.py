@@ -81,7 +81,7 @@ def upgrade():
     sa.Column('label', sa.String(length=255), nullable=False),
     sa.Column('description', sa.Text(), nullable=True),
     sa.Column('todolist_id', sa.CHAR(length=36), nullable=False),
-    sa.Column('status', sa.Enum('active', 'done', name='nodestatus'), nullable=False),
+    sa.Column('status', sa.Enum('active', 'done', 'ready', name='nodestatus'), nullable=False),
     sa.Column('priority', sa.Enum('a', 'b', 'c', 'd', 'e', name='priority'), nullable=False),
     sa.Column('created_ts', mysql.DATETIME(), nullable=False),
     sa.ForeignKeyConstraint(['parent_id'], ['Task.task_id'], name=op.f('fk_Task_parent_id_Task'), ondelete='cascade'),

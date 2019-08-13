@@ -8,7 +8,7 @@ class TodoListID(Schema):
 
 
 class TodoListLabel(Schema):
-    label = fields.String(required=False)
+    label = fields.Str(required=False)
 
 
 class TodoListStatusField(Schema):
@@ -38,7 +38,7 @@ class TodoListGet(Schema):
 class TodoListPost(Schema):
     label = fields.Str(required=True)
     description = fields.Str(required=False)
-    status = EnumField(TodoListStatus, required=False, dump_by=EnumField.NAME, load_by=EnumField.NAME,
+    status = EnumField(TodoListStatus, required=True, dump_by=EnumField.NAME, load_by=EnumField.NAME,
                        missing=TodoListStatus.active.name)
     priority = EnumField(Priority, required=True, dump_by=EnumField.VALUE, load_by=EnumField.NAME)
 
