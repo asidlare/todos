@@ -1,9 +1,10 @@
 from uuid import uuid4
 from datetime import datetime
 import logging
+from sqlalchemy.exc import DBAPIError, SQLAlchemyError
 from todos.models.definitions import (db, TodoListTbl, UserTodoListTbl, TodoListCreatorTbl, TodoListStatusChangeLogTbl,
                                       UserTbl)
-from sqlalchemy.exc import DBAPIError, SQLAlchemyError
+from tools import timer
 
 
 logger = logging.getLogger('todos')
@@ -18,6 +19,7 @@ class TodoListApi():
     def read_todolist_by_id(self, todolist_id):
         return db.session.query(TodoListTbl).filter_by(todolist_id=todolist_id).first()
 
+    @timer
     def get_todolists(self, todolist_id=None, filters=None):
         if todolist_id:
             todo = db.session.query(TodoListTbl).filter_by(todolist_id=todolist_id).all()

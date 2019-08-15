@@ -1,8 +1,9 @@
 from uuid import uuid4
 from datetime import datetime
 import logging
-from todos.models.definitions import (db, TodoListTbl, UserTbl, TaskTbl, TaskStatusChangeLogTbl)
 from sqlalchemy.exc import DBAPIError, SQLAlchemyError
+from todos.models.definitions import (db, TodoListTbl, UserTbl, TaskTbl, TaskStatusChangeLogTbl)
+from tools import timer
 
 
 logger = logging.getLogger('todos')
@@ -19,6 +20,7 @@ class TaskApi():
     def read_task_by_id(self, task_id):
         return db.session.query(TaskTbl).filter_by(task_id=task_id).filter_by(todolist_id=self.todolist_id).first()
 
+    @timer
     def get_tasks(self, expand, task_id=None):
         if task_id:
             task = self.read_task_by_id(task_id)
@@ -81,9 +83,12 @@ class TaskApi():
             db.session.rollback()
             return
 
+    @timer
     def purge_tasks(self):
         try:
-            db.session.query(TaskTbl).filter_by(status='done').delete()
+            for task in db.session.query(TaskTbl).filter_by(status='done').all():
+                if task.is_leaf or all(row['status'] == 'done' for row in task.dfs_tree_from_object(visited=list())):
+                    db.session.query(TaskTbl).filter_by(task_id=task.task_id).delete()
             db.session.commit()
             return True
         except (DBAPIError, SQLAlchemyError) as e:
@@ -91,6 +96,7 @@ class TaskApi():
             db.session.rollback()
             return
 
+    @timer
     def reparent_tasks(self, task_id, new_parent_id):
         task = self.read_task_by_id(task_id)
         if not task:
