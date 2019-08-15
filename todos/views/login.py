@@ -33,12 +33,12 @@ class Login(MethodView):
             content:
                 application/json:
                   schema: UserGet
-          404:
+          401:
             description: "login/password pair doesn't match"
             content:
                 application/json:
                   schema: UserError
-          500:
+          409:
             description: "login or password not provided"
             content:
                 application/json:
@@ -46,13 +46,17 @@ class Login(MethodView):
         """
         schema, errors = UserLogin().load(request.get_json())
         if errors:
-            return jsonify({'error': errors}), 500
+            logger.error(f"Getting {request.url} using {request.method}, errors: {errors}")
+            return jsonify({'error': errors}), 409
 
+        logger.info(f"Getting {request.url} using {request.method} user {schema['login']}")
         user = user_api.read_user_by_login(schema['login'])
         if user and user.is_authenticated(**schema):
             login_user(user, remember=True)
             return jsonify(user.to_dict()), 200
-        return jsonify({'error': "login/password pair doesn\'t match"}), 404
+
+        logger.error(f"Getting {request.url} using {request.method}, {schema} doesn't match")
+        return jsonify({'error': "login/password pair doesn\'t match"}), 401
 
     @classmethod
     def register(cls):

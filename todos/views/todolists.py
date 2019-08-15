@@ -3,10 +3,7 @@ import logging
 from flask import Blueprint, request, jsonify
 from flask.views import MethodView
 from flask_login import current_user, login_required
-from todos.schemas.todolists import (TodoListID, TodoListLabel, TodoListPost, TodoListError, TodoListOK, TodoListGet,
-                                     TodoListPriorityField, TodoListStatusField, TodoListPatch) # noqa
-from todos.schemas.utils import RoleWithOwner, RoleWithoutOwner # noqa
-from todos.schemas.user import UserEmail # noqa
+from todos.schemas.todolists import TodoListPatch, TodoListPost, TodoListError, TodoListOK, TodoListGet # noqa
 from todos.models.api.todolists_api import TodoListApi
 from todos.models.api.user_api import UserApi
 
@@ -28,38 +25,38 @@ class TodoList(MethodView):
         parameters:
           - name: todolist_id
             in: query
-            schema: TodoListID
+            schema:
+              type: string
+              format: uuid
+              example: 00000000-0000-0000-0000-000000000000
           - name: label
             in: query
-            schema: TodoListLabel
+            schema:
+              type: string
           - name: status
             in: query
-            schema: TodoListStatusField
+            schema:
+              type: string
+              enum: [active, inactive]
           - name: priority
             in: query
-            schema: TodoListPriorityField
+            schema:
+              type: string
+              enum: [veryhigh, high, medium, low, verylow]
         responses:
           '200':
             description: "Successful operation"
             content:
               application/json:
                 schema: TodoListGet
-          '401':
-            description: "No user logged in"
-            content:
-              application/json:
-                schema: TodoListError
           '404':
             description: "No list available"
             content:
               application/json:
                 schema: TodoListError
         """
-        if not current_user:
-            return jsonify({'error': 'No user logged in'}), 401
         logged_user_id = current_user.user_id
 
-        # additional query params
         filters = dict()
         filters['label'] = request.args.get('label', default=None)
         filters['status'] = request.args.get('status', default=None)
@@ -70,6 +67,7 @@ class TodoList(MethodView):
 
         todolist_api = TodoListApi(logged_user_id)
         data = tuple(todolist_api.get_todolists(todolist_id=todolist_id, filters=filters))
+        logger.info(f"Getting {request.url} using {request.method}")
 
         if data:
             return jsonify(data), 200
@@ -94,29 +92,30 @@ class TodoList(MethodView):
             content:
               application/json:
                 schema: TodoListGet
-          '401':
-            description: "No user logged in"
+          '409':
+            description: "Database error"
             content:
               application/json:
                 schema: TodoListError
-          '500':
+          '409':
             description: "Not correct input data"
             content:
               application/json:
                 schema: TodoListError
         """
-        if not current_user:
-            return jsonify({'error': 'No user logged in'}), 401
         logged_user_id = current_user.user_id
 
         schema, errors = TodoListPost().load(request.get_json())
         if errors:
-            return jsonify({'error': errors}), 500
+            logger.error(f"Getting {request.url} using {request.method}, errors: {errors}")
+            return jsonify({'error': errors}), 409
 
+        logger.info(f"Getting {request.url} using {request.method} with schema {schema}")
         todolist_api = TodoListApi(logged_user_id)
         todolist = todolist_api.create_todolist(schema)
 
         if not todolist:
+            logger.error(f"Getting {request.url} with {request.method}, database error")
             return jsonify({'error': 'Database error'}), 400
 
         return jsonify(todolist.to_dict()), 201
@@ -131,7 +130,10 @@ class TodoList(MethodView):
         parameters:
           - name: todolist_id
             in: path
-            schema: TodoListID
+            schema:
+              type: string
+              format: uuid
+              example: 00000000-0000-0000-0000-000000000000
         requestBody:
           required: true
           content:
@@ -144,12 +146,7 @@ class TodoList(MethodView):
               application/json:
                 schema: TodoListOK
           '400':
-            description: "Request with no data to change"
-            content:
-              application/json:
-                schema: TodoListError
-          '401':
-            description: "No user logged in"
+            description: "Request with no data to change or database error"
             content:
               application/json:
                 schema: TodoListError
@@ -163,27 +160,31 @@ class TodoList(MethodView):
             content:
               application/json:
                 schema: TodoListError
-          '500':
+          '409':
             description: "Bad format of input data"
             content:
               application/json:
                 schema: TodoListError
         """
-        if not current_user:
-            return jsonify({'error': 'No user logged in'}), 401
         logged_user_id = current_user.user_id
 
         if not current_user.role(todolist_id):
+            logger.error(f"Getting {request.url} using {request.method}, user {current_user.login} "
+                         f"with no access to todolist {todolist_id}")
             return jsonify({'error': 'User with no access to todolist'}), 404
 
         if current_user.role(todolist_id) == 'reader':
+            logger.error(f"Getting {request.url} using {request.method}, user {current_user.login} "
+                         f"has got no permission to update todolist {todolist_id}")
             return jsonify({'error': 'No permission for updating todolist'}), 403
 
         schema, errors = TodoListPatch().load(request.get_json())
         if errors:
-            return jsonify({'error': errors}), 500
+            logger.error(f"Getting {request.url} using {request.method}, errors {errors}")
+            return jsonify({'error': errors}), 409
 
         if not schema:
+            logger.debug(f"Getting {request.url} using {request.method}, no data to change")
             return jsonify({'error': 'Request with no data to change'}), 400
 
         todolist_api = TodoListApi(logged_user_id)
@@ -204,8 +205,10 @@ class TodoList(MethodView):
             to_change['priority'] = schema['priority']
 
         if to_change:
+            logger.info(f"Getting {request.url} using {request.method} with schema {schema}")
             updated = todolist_api.update_todolist(todolist_id, to_change)
             if not updated:
+                logger.error(f"Getting {request.url} with {request.method}, database error")
                 return jsonify({'error': f"Database error"}), 400
 
         return jsonify({'response': f"TodoList {todolist.label} modified"}), 200
@@ -220,7 +223,10 @@ class TodoList(MethodView):
         parameters:
           - name: todolist_id
             in: path
-            schema: TodoListID
+            schema:
+              type: string
+              format: uuid
+              example: 00000000-0000-0000-0000-000000000000
         responses:
           '204':
             description: "Successful operation"
@@ -243,22 +249,27 @@ class TodoList(MethodView):
               application/json:
                 schema: TodoListError
         """
-        if not current_user:
-            return jsonify({'error': 'No user logged in'}), 401
-        user_id = current_user.user_id
+        logged_user_id = current_user.user_id
 
         if not current_user.role(todolist_id):
+            logger.error(f"Getting {request.url} using {request.method}, user {current_user.login} "
+                         f"with no access to todolist {todolist_id}")
             return jsonify({'error': 'User with no access to todolist'}), 404
 
         if current_user.role(todolist_id) != 'owner':
+            logger.error(f"Getting {request.url} using {request.method}, user {current_user.login} "
+                         f"has got no permission to delete todolist {todolist_id}")
             return jsonify({'error': 'No permission for deleting todolist'}), 403
 
-        todolist_api = TodoListApi(user_id)
+        todolist_api = TodoListApi(logged_user_id)
         todolist = todolist_api.read_todolist_by_id(todolist_id)
 
         deleted = todolist_api.delete_todolist(todolist_id)
         if not deleted:
+            logger.error(f"Getting {request.url} with {request.method}, database error")
             return jsonify({'error': f"Database error"}), 400
+
+        logger.info(f"Getting {request.url} using {request.method}")
 
         return jsonify({'response': f"TodoList {todolist.label} deleted"}), 200
 
@@ -272,20 +283,28 @@ class TodoList(MethodView):
         parameters:
           - name: todolist_id
             in: path
-            schema: TodoListID
-            description: TodoList UUID.
+            schema:
+              type: string
+              format: uuid
+              example: 00000000-0000-0000-0000-000000000000
           - name: email
             in: path
-            schema: UserEmail
-            description: Login of the user to change permissions.
+            schema:
+              type: string
+              maxLength: 250
+              minLength: 5
+              pattern: ^[^@\s]+@[^@\s]+\.[^@\s]+$
+              example: user@example.com
           - name: role
             in: query
-            schema: RoleWithOwner
-            description: New role for a login. If empty, the connection between user and todolist would be removed
+            schema:
+              type: string
+              enum: [owner, admin, reader]
           - name: new_owner_role
             in: query
-            schema: RoleWithoutOwner
-            description: New role for a logged user when adding permission as an owner. Required when role is owner.
+            schema:
+              type: string
+              enum: [admin, reader]
         responses:
           '200':
             description: "Successful operation"
@@ -312,18 +331,24 @@ class TodoList(MethodView):
             content:
               application/json:
                 schema: TodoListError
-        """
+        """ # noqa
         if not current_user:
             return jsonify({'error': 'No user logged in'}), 401
         logged_user_id = current_user.user_id
 
         if not current_user.role(todolist_id):
+            logger.error(f"Getting {request.url} using {request.method}, user {current_user.login} "
+                         f"with no access to todolist {todolist_id}")
             return jsonify({'error': 'User with no access to todolist'}), 404
 
         if current_user.role(todolist_id) != 'owner':
+            logger.error(f"Getting {request.url} using {request.method}, user {current_user.login} "
+                         f"has got no permission to update todolist {todolist_id}")
             return jsonify({'error': 'No permission for updating todolist'}), 403
 
         if current_user.email == email:
+            logger.error(f"Getting {request.url} using {request.method}, user {current_user.login} "
+                         f"has got no permission to his rights himself")
             return jsonify({'error': 'No permission for updating logged user rights itself'}), 403
 
         # check todolist
@@ -334,6 +359,7 @@ class TodoList(MethodView):
         user_api = UserApi()
         user = user_api.read_user_by_email(email)
         if not user:
+            logger.error(f"Getting {request.url} using {request.method}, not existing email {email}")
             return jsonify({'error': f"Not existing {email}"}), 404
 
         role_name = request.args.get('role', default=None)
@@ -344,7 +370,10 @@ class TodoList(MethodView):
 
         updated = todolist_api.permissions(todolist_id, user.user_id, role_name, new_owner_role_name)
         if not updated:
+            logger.error(f"Getting {request.url} with {request.method}, database error")
             return jsonify({'error': f"Database error"}), 400
+
+        logger.info(f"Getting {request.url} using {request.method}")
 
         return jsonify({'response': f"TodoList {todolist.label} updated"}), 200
 

@@ -33,9 +33,6 @@ class TodoListViewTests(IntegrationTestCase):
         self.client.post('/api/v1/todolists', json={'label': 'List 1', 'status': 'active', 'priority': 'high'})
         self.todolist = db.session.query(TodoListTbl).filter_by(label='List 1').first()
 
-    def create_todolist_set(self):
-        pass
-
     def create_tasks_set(self):
         """
                                                   tree structure for testing
@@ -100,7 +97,7 @@ class TodoListViewTests(IntegrationTestCase):
             'status': 'inny',
             'priority': 'medium',
         })
-        self.assertEqual(result.status_code, 500)
+        self.assertEqual(result.status_code, 409)
 
         # not correct priority
         result = self.client.post(f"/api/v1/tasks/{self.todolist.todolist_id}", json={
@@ -108,7 +105,7 @@ class TodoListViewTests(IntegrationTestCase):
             'status': 'active',
             'priority': 'inne',
         })
-        self.assertEqual(result.status_code, 500)
+        self.assertEqual(result.status_code, 409)
 
         # log out
         self.client.get('/api/v1/logout')
@@ -196,13 +193,13 @@ class TodoListViewTests(IntegrationTestCase):
         result = self.client.patch(f"/api/v1/tasks/{self.todolist.todolist_id}/{tasks[1]['task_id']}",
                                    json={'label': 'List 7', 'description': 'Desc',
                                          'priority': 'high1', 'status': 'active'})
-        self.assertEqual(result.status_code, 500)
+        self.assertEqual(result.status_code, 409)
 
         # not correct status
         result = self.client.patch(f"/api/v1/tasks/{self.todolist.todolist_id}/{tasks[1]['task_id']}",
                                    json={'label': 'List 7', 'description': 'Desc',
                                          'priority': 'high', 'status': 'active1'})
-        self.assertEqual(result.status_code, 500)
+        self.assertEqual(result.status_code, 409)
 
         # log out
         self.client.get('/api/v1/logout')

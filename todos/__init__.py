@@ -15,7 +15,7 @@ class Todos:
     def __init__(self):
         # Create and configure app
         self.app = Flask(__name__)
-        self.environment = os.getenv('FLASK_ENV', default='production')
+        self.environment = os.getenv('FLASK_ENV', default='development')
 
         # load config
         self.load_config()

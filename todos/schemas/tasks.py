@@ -1,28 +1,6 @@
-from enum import Enum
 from marshmallow import Schema, fields
 from marshmallow_enum import EnumField
 from todos.models.definitions import TaskStatus, Priority
-
-
-class DelActionEnum(Enum):
-    delete = 1
-    purge = 2
-
-
-class DelActionField(Schema):
-    action = EnumField(DelActionEnum, required=True, dump_by=EnumField.NAME, load_by=EnumField.NAME)
-
-
-class TaskID(Schema):
-    task_id = fields.UUID(required=False, allow_none=True)
-
-
-class ParentID(Schema):
-    new_parent_id = fields.UUID(required=False, allow_none=True)
-
-
-class TaskExpand(Schema):
-    expand = fields.Bool(required=True)
 
 
 class TaskStatusChanges(Schema):

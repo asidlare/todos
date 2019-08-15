@@ -2,8 +2,8 @@ import logging
 
 from flask import Blueprint, jsonify
 from flask.views import MethodView
-from flask_login import logout_user, login_required, current_user
-from todos.schemas.user import UserOK, UserError # noqa
+from flask_login import logout_user, login_required
+from todos.schemas.user import UserOK # noqa
 from todos.models.api.user_api import UserApi
 
 # logger
@@ -29,19 +29,9 @@ class Logout(MethodView):
             content:
                 application/json:
                   schema: UserOK
-          404:
-            description: "User not exists"
-            content:
-                application/json:
-                  schema: UserError
         """
-        user_id = current_user.user_id
-
-        userdb = user_api.read_user_by_user_id(user_id)
-        if not userdb:
-            return jsonify({'error': 'Not existing user'}), 404
-
         logout_user()
+
         return jsonify({'response': "logout"}), 200
 
     @classmethod

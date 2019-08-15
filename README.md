@@ -4,11 +4,26 @@ Todos flask app with swagger
 The repository includes flask app with authorization which
 allowes to create todolists with tasks inside.
 
-## Virtual environment
+## Installation and virtual environment
 
-To start using this app create and activate virtual 
-environment and install required packages
+### Install pyenv
+```sh
+$ curl https://pyenv.run | bash
+```
 
+### Update .bash_profile to load pyenv automatically
+```sh
+echo 'export PATH="$HOME/.pyenv/bin:$PATH"' >> ~/.bash_profile
+echo 'eval "$(pyenv init -)"' >> ~/.bash_profile
+echo 'eval "$(pyenv virtualenv-init -)"' >> ~/.bash_profile
+```
+
+### Install any python version, eg.:
+```sh
+$ pyenv install 3.7.2
+```
+
+### Create virtual environment
 ```sh
 $ pyenv local 3.7.2
 $ python -mvenv env
@@ -22,15 +37,15 @@ $ pip install -e ".[dev]"
 You will need running mysql server with created db and 
 credentials as in config.ini file
 
-Next you will have to run migration:
+### Run migration:
 ```sh
 $ manage db upgrade
 ```
 
-To run app launch the following:
+### run gunicorn
 
 ```sh
-$ FLASK_ENV=development FLASK_APP=todos/app.py flask run
+$ ./run_app.sh
 ```
 
 Now you can access swagger api in brower:
@@ -51,7 +66,7 @@ Below you can see compressed endpoints view:
 and expanded endpoints view:
 ![expanded endpoints view](doc/todos_endpoints_expanded_Swagger_UI.png)
 
-Databases schema:
+Database schema:
 [db schema](todos/models/doc/todos.pdf)
 
 # Test coverage

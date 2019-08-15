@@ -3,22 +3,6 @@ from marshmallow_enum import EnumField
 from todos.models.definitions import TodoListStatus, Priority
 
 
-class TodoListID(Schema):
-    todolist_id = fields.UUID(required=False)
-
-
-class TodoListLabel(Schema):
-    label = fields.Str(required=False)
-
-
-class TodoListStatusField(Schema):
-    status = EnumField(TodoListStatus, required=False, dump_by=EnumField.NAME, load_by=EnumField.NAME)
-
-
-class TodoListPriorityField(Schema):
-    priority = EnumField(Priority, required=False, dump_by=EnumField.VALUE, load_by=EnumField.NAME)
-
-
 class TodoListStatusChanges(Schema):
     change_ts = fields.DateTime(required=True)
     changed_by = fields.Str(required=True)

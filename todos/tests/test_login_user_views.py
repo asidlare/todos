@@ -21,13 +21,13 @@ class LoginTests(IntegrationTestCase):
 
         # try to log using login only
         result = self.client.post('/api/v1/login', json={'login': 'user1'})
-        self.assertEqual(result.status_code, 500)
+        self.assertEqual(result.status_code, 409)
         # try to log using password only
         result = self.client.post('/api/v1/login', json={'password': 'abc123'})
-        self.assertEqual(result.status_code, 500)
+        self.assertEqual(result.status_code, 409)
         # try to log using bad password
         result = self.client.post('/api/v1/login', json={'login': 'user1', 'password': 'abc1234'})
-        self.assertEqual(result.status_code, 404)
+        self.assertEqual(result.status_code, 401)
 
         # try to log using correct password
         result = self.client.post('/api/v1/login', json={'login': 'user1', 'password': 'abc123'})

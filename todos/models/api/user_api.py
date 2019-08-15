@@ -1,7 +1,11 @@
 from uuid import uuid4
+import logging
 from datetime import datetime
 from todos.models.definitions import db, UserTbl
 from sqlalchemy.exc import DBAPIError, SQLAlchemyError
+
+
+logger = logging.getLogger('todos')
 
 
 class UserApi():
@@ -21,7 +25,8 @@ class UserApi():
             db.session.add(user)
             db.session.commit()
             return user
-        except (DBAPIError, SQLAlchemyError):
+        except (DBAPIError, SQLAlchemyError) as e:
+            logger.error(f"Database error: {e}")
             db.session.rollback()
             return
 
@@ -30,7 +35,8 @@ class UserApi():
             db.session.query(UserTbl).filter_by(user_id=user_id).update(to_change)
             db.session.commit()
             return True
-        except (DBAPIError, SQLAlchemyError):
+        except (DBAPIError, SQLAlchemyError) as e:
+            logger.error(f"Database error: {e}")
             db.session.rollback()
             return
 
@@ -39,6 +45,7 @@ class UserApi():
             db.session.query(UserTbl).filter_by(user_id=user_id).delete()
             db.session.commit()
             return True
-        except (DBAPIError, SQLAlchemyError):
+        except (DBAPIError, SQLAlchemyError) as e:
+            logger.error(f"Database error: {e}")
             db.session.rollback
             return

@@ -37,7 +37,7 @@ class UserViewTests(IntegrationTestCase):
             'email': 'user1@hurra.com',
         })
         self.assertEqual(result.status_code, 400)
-        self.assertEqual(result.json['error'], 'User exists')
+        self.assertEqual(result.json['error'], 'Login exists')
 
         # new user with the same email
         result = self.client.post('/api/v1/user', json={
@@ -111,7 +111,7 @@ class UserViewTests(IntegrationTestCase):
 
         # changed to not correct email
         result = self.client.patch('/api/v1/user', json={'email': 'test123'})
-        self.assertEqual(result.status_code, 500)
+        self.assertEqual(result.status_code, 409)
         self.assertEqual(result.json['error'], {'email': ['Not a valid email address.']})
 
         # changed to correct email

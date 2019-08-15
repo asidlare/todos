@@ -64,7 +64,7 @@ class TodoListViewTests(IntegrationTestCase):
             'status': 'inny',
             'priority': 'medium',
         })
-        self.assertEqual(result.status_code, 500)
+        self.assertEqual(result.status_code, 409)
 
         # not correct priority
         result = self.client.post('/api/v1/todolists', json={
@@ -72,7 +72,7 @@ class TodoListViewTests(IntegrationTestCase):
             'status': 'active',
             'priority': 'inne',
         })
-        self.assertEqual(result.status_code, 500)
+        self.assertEqual(result.status_code, 409)
 
         # log out
         self.client.get('/api/v1/logout')
@@ -175,13 +175,13 @@ class TodoListViewTests(IntegrationTestCase):
         result = self.client.patch(f"/api/v1/todolists/{todo.todolist_id}",
                                    json={'label': 'List 7', 'description': 'Desc',
                                          'priority': 'high1', 'status': 'active'})
-        self.assertEqual(result.status_code, 500)
+        self.assertEqual(result.status_code, 409)
 
         # not correct status
         result = self.client.patch(f"/api/v1/todolists/{todo.todolist_id}",
                                    json={'label': 'List 7', 'description': 'Desc',
                                          'priority': 'high', 'status': 'active1'})
-        self.assertEqual(result.status_code, 500)
+        self.assertEqual(result.status_code, 409)
 
         # log out
         self.client.get('/api/v1/logout')
