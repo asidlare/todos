@@ -3,7 +3,7 @@ from datetime import datetime
 import logging
 from sqlalchemy.exc import DBAPIError, SQLAlchemyError
 from todos.models.definitions import (db, TodoListTbl, UserTodoListTbl, TodoListCreatorTbl, TodoListStatusChangeLogTbl,
-                                      UserTbl)
+                                      UserTbl, RoleTbl, TaskCountTbl)
 from tools import timer
 
 
@@ -15,6 +15,7 @@ class TodoListApi():
     def __init__(self, user_id):
         self.user_id = user_id
         self.user = db.session.query(UserTbl).filter_by(user_id=self.user_id).first()
+        self.role = db.session.query(RoleTbl).filter_by(role='owner').one()
 
     def read_todolist_by_id(self, todolist_id):
         return db.session.query(TodoListTbl).filter_by(todolist_id=todolist_id).first()
@@ -28,6 +29,12 @@ class TodoListApi():
             return self.user.all_todolists(**filters)
 
     def create_todolist(self, data):
+        # todolist limit
+        owner_todolist_count = self.user.owner_todolist_count + 1
+        if owner_todolist_count > self.role.todolist_count_limit:
+            logger.error(f"Todolist todolist count limit ({self.role.todolist_count_limit}) exceeded")
+            return False
+
         try:
             todo = TodoListTbl(**data, todolist_id=str(uuid4()), created_ts=datetime.utcnow())
             db.session.add(todo)
@@ -35,6 +42,7 @@ class TodoListApi():
             db.session.add(UserTodoListTbl(todolist_id=todo.todolist_id, user_id=self.user_id, role='owner'))
             db.session.add(TodoListStatusChangeLogTbl(TodoList=todo, changed_by=self.user_id,
                                                       change_ts=todo.created_ts, status=data['status']))
+            db.session.add(TaskCountTbl(todolist_id=todo.todolist_id, quantity=0))
             db.session.commit()
             return todo
         except (DBAPIError, SQLAlchemyError) as e:

@@ -8,8 +8,10 @@ class TodoListViewTests(IntegrationTestCase):
     def setUp(self):
         super().setUp()
 
-        owner = RoleTbl(role='owner', change_owner=1, delete=1, change_permissions=1, change_data=1, read=1)
-        admin = RoleTbl(role='admin', change_owner=0, delete=0, change_permissions=0, change_data=1, read=1)
+        owner = RoleTbl(role='owner', change_owner=1, delete=1, change_permissions=1, change_data=1, read=1,
+                        todolist_count_limit=10, task_count_limit=100, task_depth_limit=10)
+        admin = RoleTbl(role='admin', change_owner=0, delete=0, change_permissions=0, change_data=1, read=1,
+                        task_count_limit=80, task_depth_limit=8)
         reader = RoleTbl(role='reader', change_owner=0, delete=0, change_permissions=0, change_data=0, read=1)
         db.session.add(owner)
         db.session.add(admin)

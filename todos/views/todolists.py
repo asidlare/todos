@@ -92,6 +92,11 @@ class TodoList(MethodView):
             content:
               application/json:
                 schema: TodoListGet
+          '403':
+            description: "Limit of todolists owned by user exceeded"
+            content:
+              application/json:
+                schema: TodoListError
           '409':
             description: "Database error"
             content:
@@ -114,9 +119,12 @@ class TodoList(MethodView):
         todolist_api = TodoListApi(logged_user_id)
         todolist = todolist_api.create_todolist(schema)
 
-        if not todolist:
+        if todolist is None:
             logger.error(f"Getting {request.url} with {request.method}, database error")
             return jsonify({'error': 'Database error'}), 400
+        elif not todolist:
+            logger.error(f"Getting {request.url} with {request.method}, limit exceeded")
+            return jsonify({'error': 'Limit exceeded'}), 403
 
         return jsonify(todolist.to_dict()), 201
 

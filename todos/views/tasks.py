@@ -98,7 +98,7 @@ class Task(MethodView):
               application/json:
                 schema: TaskError
           '403':
-            description: "No permission to access todolist or create a task"
+            description: "No permission to access todolist or create a task or limit exceeded"
             content:
               application/json:
                 schema: TaskError
@@ -128,9 +128,12 @@ class Task(MethodView):
         task_api = TaskApi(logged_user_id, todolist_id)
         task = task_api.create_task(schema)
 
-        if not task:
+        if task is None:
             logger.error(f"Getting {request.url} with {request.method}, database error")
             return jsonify({'error': 'Database error'}), 400
+        elif not task:
+            logger.error(f"Getting {request.url} with {request.method}, limit exceeded")
+            return jsonify({'error': 'Limit exceeded'}), 403
 
         return jsonify(task.to_dict()), 201
 

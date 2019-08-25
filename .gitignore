@@ -4,3 +4,5 @@ env/
 test-output/
 *.egg*
 __pycache__/
+logs/gunicorn.log
+logs/todos.log

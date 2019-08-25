@@ -1,4 +1,4 @@
-from sqlalchemy import MetaData, DateTime, Boolean, Integer
+from sqlalchemy import MetaData, DateTime, Boolean, Integer, SmallInteger
 from sqlalchemy.dialects import mysql
 from flask_sqlalchemy import SQLAlchemy as _BaseSQLAlchemy
 from flask_migrate import Migrate
@@ -22,6 +22,9 @@ BOOLEAN_TYPE = BOOLEAN_TYPE.with_variant(mysql.TINYINT(display_width=1), 'mysql'
 # Unsigned integer.
 UNSIGNEDINT_TYPE = Integer()
 UNSIGNEDINT_TYPE = UNSIGNEDINT_TYPE.with_variant(mysql.INTEGER(unsigned=True), 'mysql')
+# Unsigned integer.
+UNSIGNEDSMALLINT_TYPE = SmallInteger()
+UNSIGNEDSMALLINT_TYPE = UNSIGNEDSMALLINT_TYPE.with_variant(mysql.SMALLINT(unsigned=True), 'mysql')
 
 
 # The “pre ping” feature will normally emit SQL equivalent to “SELECT 1” each time a connection is checked out

@@ -1,7 +1,8 @@
 from uuid import uuid4
 from datetime import datetime
 from tests.base import TestCaseWithDB
-from todos.models.definitions import (db, UserTbl, RoleTbl, Priority, TodoListStatus, TaskTbl, TaskStatus)
+from todos.models.definitions import (db, UserTbl, RoleTbl, Priority, TodoListStatus,
+                                      TaskTbl, TaskStatus)
 from todos.models.api.todolists_api import TodoListApi
 from todos.models.api.tasks_api import TaskApi
 
@@ -15,8 +16,10 @@ class TaskApiTests(TestCaseWithDB):
                             email='user1@example.com', created=datetime.utcnow())
         db.session.add(self.user)
         db.session.commit()
-        owner = RoleTbl(role='owner', change_owner=1, delete=1, change_permissions=1, change_data=1, read=1)
-        admin = RoleTbl(role='admin', change_owner=0, delete=0, change_permissions=0, change_data=1, read=1)
+        owner = RoleTbl(role='owner', change_owner=1, delete=1, change_permissions=1, change_data=1, read=1,
+                        todolist_count_limit=10, task_count_limit=100, task_depth_limit=10)
+        admin = RoleTbl(role='admin', change_owner=0, delete=0, change_permissions=0, change_data=1, read=1,
+                        task_count_limit=80, task_depth_limit=8)
         reader = RoleTbl(role='reader', change_owner=0, delete=0, change_permissions=0, change_data=0, read=1)
         db.session.add(owner)
         db.session.add(admin)
@@ -309,7 +312,7 @@ class TaskApiTests(TestCaseWithDB):
         # nothing changed, bad parent
         self.assertEqual(self.task_api.reparent_tasks(task1.task_id, task1.task_id), False)
 
-        # initial tree, nothing changed
+        # nothing changed, bad parent
         self.assertEqual(
             [{'label': row['label'], 'priority': row['priority'], 'status': row['status'], 'depth': row['depth'],
               'is_leaf': row['is_leaf']} for row in self.task_api.get_tasks(expand=True)],
@@ -327,10 +330,35 @@ class TaskApiTests(TestCaseWithDB):
             ]
         )
 
-        # nothing changed, bad parent
+        # nothing changed, good parent but depth limit exceeded
+        db.session.query(RoleTbl).filter_by(role='owner').update({'task_depth_limit': 3})
+        db.session.commit()
+        self.assertEqual(self.task_api.reparent_tasks(task1.task_id, task7.task_id), False)
+
+        # nothing changed, good parent but depth limit exeeded
+        self.assertEqual(
+            [{'label': row['label'], 'priority': row['priority'], 'status': row['status'], 'depth': row['depth'],
+              'is_leaf': row['is_leaf']} for row in self.task_api.get_tasks(expand=True)],
+            [
+                {'label': 'Task 2', 'priority': 'veryhigh', 'status': 'done', 'depth': 0, 'is_leaf': False},
+                {'label': 'Task 7', 'priority': 'medium', 'status': 'done', 'depth': 1, 'is_leaf': True},
+                {'label': 'Task 0', 'priority': 'high', 'status': 'active', 'depth': 0, 'is_leaf': False},
+                {'label': 'Task 6', 'priority': 'high', 'status': 'active', 'depth': 1, 'is_leaf': True},
+                {'label': 'Task 1', 'priority': 'medium', 'status': 'active', 'depth': 1, 'is_leaf': False},
+                {'label': 'Task 3', 'priority': 'high', 'status': 'done', 'depth': 2, 'is_leaf': False},
+                {'label': 'Task 8', 'priority': 'medium', 'status': 'done', 'depth': 3, 'is_leaf': True},
+                {'label': 'Task 4', 'priority': 'medium', 'status': 'active', 'depth': 2, 'is_leaf': False},
+                {'label': 'Task 9', 'priority': 'medium', 'status': 'active', 'depth': 3, 'is_leaf': True},
+                {'label': 'Task 5', 'priority': 'medium', 'status': 'active', 'depth': 2, 'is_leaf': True}
+            ]
+        )
+
+        # changed
+        db.session.query(RoleTbl).filter_by(role='owner').update({'task_depth_limit': 10})
+        db.session.commit()
         self.assertEqual(self.task_api.reparent_tasks(task1.task_id, task7.task_id), True)
 
-        # initial tree, nothing changed
+        # changed
         self.assertEqual(
             [{'label': row['label'], 'priority': row['priority'], 'status': row['status'], 'depth': row['depth'],
               'is_leaf': row['is_leaf']} for row in self.task_api.get_tasks(expand=True)],

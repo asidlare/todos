@@ -1,4 +1,5 @@
-from .base import db, DictMixin, DATETIME_TYPE, BOOLEAN_TYPE
+from .base import db, DictMixin, DATETIME_TYPE, BOOLEAN_TYPE, UNSIGNEDSMALLINT_TYPE
+from .utils import on_create, on_drop
 from sqlalchemy_utils import PasswordType, EmailType, force_auto_coercion
 from sqlalchemy.ext.hybrid import hybrid_property
 from enum import Enum
@@ -71,6 +72,11 @@ class UserTbl(db.Model, UserMixin, DictMixin):
         role_row = [row.role for row in self.todolists_assoc if row.todolist_id == todolist_id]
         return role_row[0] if role_row else None
 
+    @property
+    def owner_todolist_count(self):
+        todolists = [row.todolist_id for row in self.todolists_assoc if row.role == 'owner']
+        return len(todolists)
+
     def all_todolists(self, label=None, status=None, priority=None):
         todolists = self.todolists
         if label:
@@ -107,6 +113,9 @@ class RoleTbl(db.Model, DictMixin):
     change_permissions = db.Column(BOOLEAN_TYPE, nullable=False)
     change_data = db.Column(BOOLEAN_TYPE, nullable=False)
     read = db.Column(BOOLEAN_TYPE, nullable=False)
+    todolist_count_limit = db.Column(UNSIGNEDSMALLINT_TYPE, nullable=True)
+    task_count_limit = db.Column(UNSIGNEDSMALLINT_TYPE, nullable=True)
+    task_depth_limit = db.Column(UNSIGNEDSMALLINT_TYPE, nullable=True)
 
 
 class TodoListTbl(db.Model, DictMixin):
@@ -144,6 +153,9 @@ class TodoListTbl(db.Model, DictMixin):
 
     # One to one relationship todolist <--> todolist ownership
     TodoListCreator = db.relationship("TodoListCreatorTbl", uselist=False, back_populates="TodoList")
+
+    # One to one relationship todolist <--> tasks count
+    TaskCount = db.relationship("TaskCountTbl", uselist=False, back_populates="TodoList")
 
     def role(self, user_id):
         role_row = [row.role for row in self.users_assoc if row.user_id == user_id]
@@ -272,6 +284,9 @@ class TaskTbl(db.Model, DictMixin):
     statuses = db.relationship('TaskStatusChangeLogTbl', back_populates='Task',
                                order_by=lambda: (TaskStatusChangeLogTbl.change_ts.desc()))
 
+    # One to one relationship task <--> task depth
+    TaskDepth = db.relationship("TaskDepthTbl", uselist=False, back_populates="Task")
+
     @property
     def children(self):
         return (row.to_dict() for row in self.children_one_level)
@@ -324,7 +339,7 @@ class TaskTbl(db.Model, DictMixin):
 
     @hybrid_property
     def depth(self):
-        return self.parent.depth + 1 if self.parent_id else 0
+        return self.TaskDepth.depth
 
     def to_dict(self):
         out = super().to_dict()
@@ -362,3 +377,48 @@ class TaskStatusChangeLogTbl(db.Model, DictMixin):
         out['status'] = self.status.name
         out['changed_by'] = self.User.name
         return out
+
+
+class TaskCountTbl(db.Model, DictMixin):
+    """
+    Table to hold number of tasks
+    """
+    __tablename__ = 'TaskCount'
+
+    __str__ = lambda self: str(self.to_dict()) # noqa
+    __repr__ = lambda self: repr(self.to_dict()) # noqa
+
+    todolist_id = db.Column(db.CHAR(36), db.ForeignKey('TodoList.todolist_id', ondelete="cascade"), primary_key=True)
+    quantity = db.Column(UNSIGNEDSMALLINT_TYPE, nullable=False)
+
+    # one to one todolist <=> task count
+    TodoList = db.relationship("TodoListTbl", back_populates="TaskCount")
+
+
+class TaskDepthTbl(db.Model, DictMixin):
+    """
+    Table to hold depth of tasks
+    """
+    __tablename__ = 'TaskDepth'
+
+    __str__ = lambda self: str(self.to_dict()) # noqa
+    __repr__ = lambda self: repr(self.to_dict()) # noqa
+
+    task_id = db.Column(db.CHAR(36), db.ForeignKey('Task.task_id', ondelete="cascade"), primary_key=True)
+    depth = db.Column(UNSIGNEDSMALLINT_TYPE, nullable=False)
+
+    # one to one task <=> task depth
+    Task = db.relationship("TaskTbl", back_populates="TaskDepth")
+
+
+task_insert = """
+    CREATE TRIGGER TaskInsert AFTER INSERT ON Task
+    FOR EACH ROW
+    BEGIN
+        UPDATE TaskCount SET quantity = quantity + 1 WHERE todolist_id = NEW.todolist_id;
+        INSERT INTO TaskDepth (task_id, depth) VALUES (NEW.task_id,
+            IFNULL((SELECT depth FROM TaskDepth TD WHERE task_id = IFNULL(NEW.parent_id, -1)), -1) + 1);
+    END;
+"""
+on_create(TaskTbl, task_insert)
+on_drop(TaskTbl, """DROP TRIGGER IF EXISTS TaskInsert;""")

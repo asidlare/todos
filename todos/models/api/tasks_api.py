@@ -2,7 +2,9 @@ from uuid import uuid4
 from datetime import datetime
 import logging
 from sqlalchemy.exc import DBAPIError, SQLAlchemyError
-from todos.models.definitions import (db, TodoListTbl, UserTbl, TaskTbl, TaskStatusChangeLogTbl)
+from .errors import ExceededLimitError
+from todos.models.definitions import (db, TodoListTbl, UserTbl, TaskTbl, TaskStatusChangeLogTbl,
+                                      TaskDepthTbl, TaskCountTbl, RoleTbl)
 from tools import timer
 
 
@@ -16,6 +18,7 @@ class TaskApi():
         self.user = db.session.query(UserTbl).filter_by(user_id=self.user_id).first()
         self.todolist_id = todolist_id
         self.todolist = db.session.query(TodoListTbl).filter_by(todolist_id=self.todolist_id).first()
+        self.role = db.session.query(RoleTbl).filter_by(role=self.todolist.role(self.user_id)).one()
 
     def read_task_by_id(self, task_id):
         return db.session.query(TaskTbl).filter_by(task_id=task_id).filter_by(todolist_id=self.todolist_id).first()
@@ -32,8 +35,20 @@ class TaskApi():
             return list(tasks[0].dfs_tree) if expand else [row.to_dict() for row in self.todolist.children_tasks]
 
     def create_task(self, data):
+        depth = 0
+        task_count = self.todolist.TaskCount.quantity + 1
         if data.get('parent_id', None):
             data['parent_id'] = str(data['parent_id'])
+            parent_obj = db.session.query(TaskTbl).filter_by(task_id=data['parent_id']).one()
+            depth = parent_obj.depth + 1
+
+        if task_count > self.role.task_count_limit:
+            logger.error(f"Task task count limit ({self.role.task_count_limit}) exceeded")
+            return False
+
+        if depth > self.role.task_depth_limit:
+            logger.error(f"Task tree depth limit ({self.role.task_depth_limit}) exceeded")
+            return False
 
         try:
             task = TaskTbl(**data, todolist_id=self.todolist_id, task_id=str(uuid4()), created_ts=datetime.utcnow())
@@ -76,6 +91,8 @@ class TaskApi():
 
         try:
             db.session.query(TaskTbl).filter_by(task_id=task_id).delete()
+            quantity = db.session.query(TaskTbl).filter_by(todolist_id=self.todolist_id).count()
+            db.session.query(TaskCountTbl).filter_by(todolist_id=self.todolist_id).update({'quantity': quantity})
             db.session.commit()
             return True
         except (DBAPIError, SQLAlchemyError) as e:
@@ -89,6 +106,8 @@ class TaskApi():
             for task in db.session.query(TaskTbl).filter_by(status='done').all():
                 if task.is_leaf or all(row['status'] == 'done' for row in task.dfs_tree_from_object(visited=list())):
                     db.session.query(TaskTbl).filter_by(task_id=task.task_id).delete()
+            quantity = db.session.query(TaskTbl).filter_by(todolist_id=self.todolist_id).count()
+            db.session.query(TaskCountTbl).filter_by(todolist_id=self.todolist_id).update({'quantity': quantity})
             db.session.commit()
             return True
         except (DBAPIError, SQLAlchemyError) as e:
@@ -105,14 +124,40 @@ class TaskApi():
         if not self._it_is_possible_to_reparent(task_id, new_parent_id):
             return False
 
+        # calculate depth difference
+        depth = 0
+        if new_parent_id:
+            depth = db.session.query(TaskDepthTbl.depth).filter_by(task_id=new_parent_id).scalar() + 1
+        depth_diff = task.depth - depth
+
         try:
+            # raise error if limit exceeded
+            if depth > self.role.task_depth_limit:
+                raise ExceededLimitError
+
+            # update parent
             db.session.query(TaskTbl).filter_by(task_id=task_id).update({'parent_id': new_parent_id})
+
+            # update depth
+            for task_tree_node in task.dfs_tree_from_object(list()):
+                new_depth = task_tree_node['depth'] - depth_diff
+
+                # raise error if limit exceeded
+                if new_depth > self.role.task_depth_limit:
+                    raise ExceededLimitError
+
+                db.session.query(TaskDepthTbl).filter_by(task_id=task_tree_node['task_id']).update({'depth': new_depth})
+
             db.session.commit()
             return True
         except (DBAPIError, SQLAlchemyError) as e:
             logger.error(f"Database error: {e}")
             db.session.rollback()
             return
+        except ExceededLimitError:
+            logger.error(f"Task tree depth limit ({self.role.task_depth_limit}) exceeded")
+            db.session.rollback()
+            return False
 
     def _it_is_possible_to_reparent(self, task_id, new_parent_id):
         # task cannot be the parent or None

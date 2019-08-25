@@ -14,8 +14,10 @@ class TodoListApiTests(TestCaseWithDB):
                             email='user1@example.com', created=datetime.utcnow())
         db.session.add(self.user)
         db.session.commit()
-        owner = RoleTbl(role='owner', change_owner=1, delete=1, change_permissions=1, change_data=1, read=1)
-        admin = RoleTbl(role='admin', change_owner=0, delete=0, change_permissions=0, change_data=1, read=1)
+        owner = RoleTbl(role='owner', change_owner=1, delete=1, change_permissions=1, change_data=1, read=1,
+                        todolist_count_limit=10, task_count_limit=100, task_depth_limit=10)
+        admin = RoleTbl(role='admin', change_owner=0, delete=0, change_permissions=0, change_data=1, read=1,
+                        task_count_limit=80, task_depth_limit=8)
         reader = RoleTbl(role='reader', change_owner=0, delete=0, change_permissions=0, change_data=0, read=1)
         db.session.add(owner)
         db.session.add(admin)
@@ -62,6 +64,29 @@ class TodoListApiTests(TestCaseWithDB):
         todo_fetched = self.todolist_api.read_todolist_by_id(todo.todolist_id)
 
         self.assertEqual(todo, todo_fetched)
+
+        # change limit to 1 of allowed todolists
+        db.session.query(RoleTbl).filter_by(role='owner').update({'todolist_count_limit': 1})
+        db.session.commit()
+        self.assertEqual(
+            self.todolist_api.create_todolist({'label': 'List2', 'status': TodoListStatus.active.name,
+                                               'priority': Priority.medium.value}),
+            False
+        )
+        self.assertEqual(
+            [(row['label'], row['priority'], row['status']) for row in self.user.all_todolists()],
+            [('List1', 'medium', 'active')]
+        )
+
+        # change limit to 10 of allowed todolists again
+        db.session.query(RoleTbl).filter_by(role='owner').update({'todolist_count_limit': 10})
+        db.session.commit()
+        todo = self.todolist_api.create_todolist({'label': 'List2', 'status': TodoListStatus.active.name,
+                                                  'priority': Priority.medium.value})
+        self.assertEqual(
+            [(row['label'], row['priority'], row['status']) for row in self.user.all_todolists()],
+            [('List1', 'medium', 'active'), ('List2', 'medium', 'active')]
+        )
 
     def test_get_todo_lists(self):
         self.create_todolist_set()
