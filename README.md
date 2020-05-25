@@ -73,3 +73,5 @@ Database schema:
 
 Below you can find test coverage report for the project:
 ![tests coverage report](doc/todos_tests_coverage_report.png)
+
+Test
